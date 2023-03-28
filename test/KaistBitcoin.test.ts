@@ -6,8 +6,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { KaistBitcoin, KaistBitcoin__factory } from "../typechain";
 import { parseEther } from "ethers/lib/utils";
-import { buildTx, mineBlock } from "../src/utils";
-import { randomBytes } from "crypto";
+import { buildTx, mineBlock as mineBlockHeader } from "../src/utils";
 
 describe("Test Kaist Bitcoin Contract", function () {
   let kaistBitcoin: KaistBitcoin;
@@ -32,18 +31,34 @@ describe("Test Kaist Bitcoin Contract", function () {
     const result = await kaistBitcoin.validateTx(tx);
     expect(result).to.be.true;
   });
-  it("validate header", async function () {
+  it("validate block", async function () {
     const prevHeader = await kaistBitcoin.lastBlock();
     const difficulty = await kaistBitcoin.difficulty();
-    const txRoot = randomBytes(32);
-    const header = await mineBlock({
+    const txs = [
+      await buildTx({
+        signer: alice,
+        to: bob.address,
+        amount: parseEther("1"),
+        fee: parseEther("0.01"),
+      }),
+      await buildTx({
+        signer: bob,
+        to: alice.address,
+        amount: parseEther("1"),
+        fee: parseEther("0.01"),
+      }),
+    ];
+    const blockHeader = await mineBlockHeader({
       address: kaistBitcoin.address,
       difficulty: difficulty.toNumber(),
-      txRoot,
+      txs,
       miner: miner.address,
       prevHeader,
     });
-    const result = await kaistBitcoin.validateBlockHeader(header);
+    const result = await kaistBitcoin.validateBlock({
+      header: blockHeader,
+      txs,
+    });
     expect(result).to.be.true;
   });
 });
