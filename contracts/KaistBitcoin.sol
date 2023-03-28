@@ -19,6 +19,12 @@ contract KaistBitcoin {
         bytes32 txRoot;
     }
 
+    struct KaistBitcoinBlock {
+        KaistBitcoinBlockHeader header;
+        KaistBitcoinTx[] txs;
+    }
+
+
     uint256 public difficulty;
     bytes32 public lastBlock;
 
@@ -26,6 +32,9 @@ contract KaistBitcoin {
         difficulty = initialDifficulty;
     }
 
+    // change this function to validate block not only its header
+    // 1. validate the txs's merkle root
+    // 2. validate each transaction
     function validateBlockHeader(
         KaistBitcoinBlockHeader memory header
     ) public view returns (bool) {
