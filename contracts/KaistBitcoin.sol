@@ -2,8 +2,9 @@
 pragma solidity >=0.8.0;
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract KaistBitcoin {
+contract KaistBitcoin is ERC20 {
     struct KaistBitcoinTx {
         address from;
         address to;
@@ -24,16 +25,32 @@ contract KaistBitcoin {
         KaistBitcoinTx[] txs;
     }
 
+    event Mine(bytes32 header, uint256 timestamp);
+    event DifficultyIncreased(uint256 newDifficulty);
+
     uint256 public difficulty;
     bytes32 public lastBlock;
+    uint256 public lastBlockTime;
 
-    constructor(uint256 initialDifficulty) {
+    constructor(uint256 initialDifficulty) ERC20("KaistBitcoin", "KBTC") {
         difficulty = initialDifficulty;
+    }
+
+    function mine(KaistBitcoinBlock memory _block) public {
+        bytes32 blockHash = validateBlock(_block);
+        if (block.timestamp - lastBlockTime <= 60 seconds) {
+            difficulty += 1;
+            emit DifficultyIncreased(difficulty); // difficulty increases
+        }
+        lastBlockTime = block.timestamp;
+        _executeTxs(_block.txs, _block.header.miner);
+        _mint(_block.header.miner, 1 ether); // miner reward to the coinbase
+        emit Mine(blockHash, lastBlockTime);
     }
 
     function validateBlock(
         KaistBitcoinBlock memory _block
-    ) public view returns (bool) {
+    ) public view returns (bytes32) {
         bytes32 blockHash = _blockHash(_block.header);
         require(_block.header.prevHeader == lastBlock, "prev block is incorrect");
         bytes32 txRoot = _txRoot(_block.txs);
@@ -43,7 +60,7 @@ contract KaistBitcoin {
         for (uint256 i = 0; i < n; i += 1) {
             validateTx(_block.txs[i]);
         }
-        return true;
+        return blockHash;
     }
 
     function validatePoW(
@@ -66,6 +83,14 @@ contract KaistBitcoin {
         address signer = ECDSA.recover(hashToSign, _tx.signature);
         require(_tx.from == signer, "Invalid signature");
         return true;
+    }
+
+    function _executeTxs(KaistBitcoinTx[] memory _txs, address miner) internal {
+        uint256 n = _txs.length;
+        for (uint256 i = 0; i < n; i += 1) {
+            _transfer(_txs[i].from, _txs[i].to, _txs[i].amount);
+            _transfer(_txs[i].from, miner, _txs[i].fee);
+        }
     }
 
     function _blockHash(

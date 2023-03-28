@@ -6,7 +6,13 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { KaistBitcoin, KaistBitcoin__factory } from "../typechain";
 import { parseEther } from "ethers/lib/utils";
-import { buildTx, mineBlock as mineBlockHeader } from "../src/utils";
+import {
+  KaistBitcoinTx,
+  buildTx,
+  getBlockHeaderHash,
+  mineBlock,
+  mineBlockHeader,
+} from "../src/utils";
 
 describe("Test Kaist Bitcoin Contract", function () {
   let kaistBitcoin: KaistBitcoin;
@@ -59,6 +65,60 @@ describe("Test Kaist Bitcoin Contract", function () {
       header: blockHeader,
       txs,
     });
-    expect(result).to.be.true;
+    expect(result).to.eq(getBlockHeaderHash(blockHeader));
+  });
+  describe("mine block", async function () {
+    it("mine the genesis block", async function () {
+      const txs: KaistBitcoinTx[] = [];
+      const blockHeader = await mineBlock({
+        contract: kaistBitcoin,
+        miner: miner.address,
+        txs,
+      });
+      await expect(
+        kaistBitcoin.mine({
+          header: blockHeader,
+          txs,
+        })
+      ).to.emit(kaistBitcoin, "Mine");
+    });
+    it("mine the genesis & the 2nd block", async function () {
+      const genesisBlock = await mineBlock({
+        contract: kaistBitcoin,
+        miner: miner.address,
+        txs: [],
+      });
+      await expect(
+        kaistBitcoin.mine({
+          header: genesisBlock,
+          txs: [],
+        })
+      ).to.emit(kaistBitcoin, "Mine");
+      const txs: KaistBitcoinTx[] = [
+        await buildTx({
+          signer: miner,
+          to: alice.address,
+          amount: parseEther("0.1"),
+          fee: parseEther("0.01"),
+        }),
+        await buildTx({
+          signer: miner,
+          to: bob.address,
+          amount: parseEther("0.1"),
+          fee: parseEther("0.01"),
+        }),
+      ];
+      const secondBlock = await mineBlock({
+        contract: kaistBitcoin,
+        miner: miner.address,
+        txs,
+      });
+      await expect(kaistBitcoin.mine({ header: secondBlock, txs }))
+        .to.emit(kaistBitcoin, "Mine")
+        .to.emit(kaistBitcoin, "Transfer")
+        .withArgs(miner.address, alice.address, parseEther("0.1"))
+        .to.emit(kaistBitcoin, "Transfer")
+        .withArgs(miner.address, bob.address, parseEther("0.1"));
+    });
   });
 });

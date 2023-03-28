@@ -2,6 +2,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { randomBytes } from "crypto";
 import { BigNumber, BigNumberish, BytesLike } from "ethers";
 import { arrayify, hexZeroPad, solidityKeccak256 } from "ethers/lib/utils";
+import { KaistBitcoin } from "../typechain";
 
 export type KaistBitcoinTx = {
   from: string;
@@ -48,6 +49,26 @@ export const buildTx = async ({
 };
 
 export const mineBlock = async ({
+  contract,
+  miner,
+  txs,
+}: {
+  contract: KaistBitcoin;
+  miner: string;
+  txs: KaistBitcoinTx[];
+}): Promise<KaistBitcoinBlockHeader> => {
+  const prevHeader = await contract.lastBlock();
+  const difficulty = await contract.difficulty();
+  return mineBlockHeader({
+    address: contract.address,
+    miner,
+    prevHeader,
+    difficulty: difficulty.toNumber(),
+    txs,
+  });
+};
+
+export const mineBlockHeader = async ({
   address,
   miner,
   difficulty,
@@ -92,6 +113,15 @@ export const mineBlock = async ({
     txRoot,
     nonce,
   };
+};
+
+export const getBlockHeaderHash = (
+  header: KaistBitcoinBlockHeader
+): BytesLike => {
+  return solidityKeccak256(
+    ["address", "bytes32", "uint256", "bytes32"],
+    [header.miner, header.prevHeader, header.nonce, header.txRoot]
+  );
 };
 
 export const getTxRoot = (txs: KaistBitcoinTx[]): BytesLike => {
