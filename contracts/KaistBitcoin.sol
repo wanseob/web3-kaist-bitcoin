@@ -3,6 +3,7 @@ pragma solidity >=0.8.0;
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
+// extend ERC20 smart contract
 contract KaistBitcoin {
     struct KaistBitcoinTx {
         address from;
@@ -27,9 +28,20 @@ contract KaistBitcoin {
     uint256 public difficulty;
     bytes32 public lastBlock;
 
+    // add events for mining & difficulty increment
+
     constructor(uint256 initialDifficulty) {
         difficulty = initialDifficulty;
     }
+
+    function mine(KaistBitcoinBlock memory _block) public {
+        // validate block
+        // if block generation period is too short (~=60 s) increase the difficulty
+        // execute transactions
+        // mint token and reward to the miner
+        // emit an event
+    }
+
 
     function validateBlock(
         KaistBitcoinBlock memory _block
