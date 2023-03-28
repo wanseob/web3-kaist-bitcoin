@@ -12,12 +12,62 @@ contract KaistBitcoin {
         bytes signature;
     }
 
+    struct KaistBitcoinBlockHeader {
+        address miner;
+        bytes32 prevHeader;
+        uint256 nonce;
+        bytes32 txRoot;
+    }
+
+    uint256 public difficulty;
+    bytes32 public lastBlock;
+
+    constructor(uint256 initialDifficulty) {
+        difficulty = initialDifficulty;
+    }
+
+    function validateBlockHeader(
+        KaistBitcoinBlockHeader memory header
+    ) public view returns (bool) {
+        bytes32 blockHash = _blockHash(header);
+        require(header.prevHeader == lastBlock, "prev block is incorrect");
+        return validatePoW(blockHash, header.nonce);
+    }
+
+    function validatePoW(
+        bytes32 blockHash,
+        uint256 nonce
+    ) public view returns (bool) {
+        uint256 val = uint256(
+            keccak256(abi.encodePacked(address(this), blockHash, nonce))
+        );
+        require(
+            val <= (type(uint256).max >> difficulty),
+            "Invalid nonce for PoW"
+        );
+        return true;
+    }
+
     function validateTx(KaistBitcoinTx memory _tx) public pure returns (bool) {
         bytes32 txHash = _txHash(_tx);
         bytes32 hashToSign = ECDSA.toEthSignedMessageHash(txHash);
         address signer = ECDSA.recover(hashToSign, _tx.signature);
         require(_tx.from == signer, "Invalid signature");
         return true;
+    }
+
+    function _blockHash(
+        KaistBitcoinBlockHeader memory _block
+    ) internal pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encodePacked(
+                    _block.miner,
+                    _block.prevHeader,
+                    _block.nonce,
+                    _block.txRoot
+                )
+            );
     }
 
     function _txHash(
